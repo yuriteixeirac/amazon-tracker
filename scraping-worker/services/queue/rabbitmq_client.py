@@ -1,11 +1,12 @@
 import pika
+import os
 
 
 class RabbitMQ:
     def __init__(self):
-        self.username = 'guest'
-        self.password = 'guest'
-        self.host = 'localhost'
+        self.username = os.getenv('RABBITMQ_USER')
+        self.password = os.getenv('RABBITMQ_PASS')
+        self.host = os.getenv('RABBITMQ_HOST')
         self.port = 5672
 
         self.channel = None

@@ -1,0 +1,50 @@
+services:
+    spring:
+        build: amazon-tracker/
+        ports:
+            - "8080:8080"
+        environment:
+            - SPRING_APPLICATION_NAME=AmazonScraper
+            - SPRING_DATASOURCE_USERNAME=root
+            - SPRING_DATASOURCE_PASSWORD=18102007
+            - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/price_tracker
+
+            - JWT_SECRET_KEY=62fca201122c47a94c82712d64b1f0b8ee45c36bda5b6450f3bc163fde99d277
+            - JWT_EXPIRATION_TIME=1209600000
+
+            - SPRING_RABBITMQ_HOST=rabbitmq
+            - SPRING_RABBITMQ_PORT=5672
+            - SPRING_RABBITMQ_USERNAME=guest
+            - SPRING_RABBITMQ_PASSWORD=guest
+        depends_on:
+            - mariadb
+            - rabbitmq
+    
+    mariadb:
+        image: "mariadb:11.2"
+        ports:
+            - "3306:3306"
+        environment:
+            - MYSQL_ROOT_PASSWORD=18102007
+            - MYSQL_DATABASE=price_tracker
+        volumes:
+            - ./mysql-data:/var/lib/mysql
+        
+    
+    rabbitmq:
+        image: "rabbitmq:3-management-alpine"
+        ports:
+            - "5672:5672"
+            - "15672:15672"
+        environment:
+            - RABBITMQ_DEFAULT_USER=guest
+            - RABBITMQ_DEFAULT_PASS=guest
+        
+    worker:
+        build: scraping-worker/
+        environment:
+            - RABBITMQ_HOST=rabbitmq
+            - RABBITMQ_USER=guest
+            - RABBITMQ_PASS=guest
+        depends_on:
+            - rabbitmq
