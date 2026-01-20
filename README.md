@@ -46,4 +46,8 @@ Este projeto foi desenvolvido como:
 - demonstração de uso de filas e workers;
 - projeto de portfólio.
 
+## A fazer
+- 
+
 estamos buscando..
+

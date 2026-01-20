@@ -1,6 +1,6 @@
 services:
     spring:
-        build: amazon-tracker/
+        build: api/
         ports:
             - "8080:8080"
         environment:
@@ -41,7 +41,7 @@ services:
             - RABBITMQ_DEFAULT_PASS=guest
         
     worker:
-        build: scraping-worker/
+        build: worker/
         environment:
             - RABBITMQ_HOST=rabbitmq
             - RABBITMQ_USER=guest
