@@ -1,13 +1,25 @@
 from bs4 import BeautifulSoup
 from datetime import datetime
+from decimal import Decimal
+from typing import Any
 import random
+import re
+
+
+class ScrapingError(Exception):
+    pass
 
 
 class AmazonBot:
     def __init__(self, browser):
         self.browser = browser
         self.title_identifier: str = 'span#productTitle'
-        self.price_identifier: str = 'span.a-price-whole'
+        self.price_identifiers: tuple[str, ...] = (
+            'span.a-price span.a-offscreen',
+            'span#priceblock_ourprice',
+            'span#priceblock_dealprice',
+            'span.a-price-whole'
+        )
 
 
     def _open_context(self):
@@ -21,45 +33,70 @@ class AmazonBot:
         )
 
 
-    def access_page(self, info: dict[str]) -> str:
+    def access_page(self, info: dict[str, Any]) -> dict[str, Any]:
         context = self._open_context()
+        page = None
 
-        page = context.new_page()
-        page.goto(info['url'], timeout=60000, wait_until='networkidle')
+        try:
+            page = context.new_page()
+            page.goto(info['url'], timeout=60000, wait_until='networkidle')
 
-        page.wait_for_timeout(random.randint(2000, 4000))
-        page.mouse.wheel(0, random.randint(300, 800))
-        page.wait_for_timeout(random.randint(1500, 3000))
+            page.wait_for_timeout(random.randint(2000, 4000))
+            page.mouse.wheel(0, random.randint(300, 800))
+            page.wait_for_timeout(random.randint(1500, 3000))
 
-        content = page.content()
+            content = page.content()
 
-        element = self.scrape_value(info['url'], content, user_id=info['userId'])
-        if element is None:
-            page.screenshot(path='ss.png')
-        
-        page.close()
-        context.close()
-
-        return element
+            return self.scrape_value(info, content)
+        finally:
+            if page:
+                page.close()
+            context.close()
 
 
-    def scrape_value(self, url: str, content: str, user_id: int = None) -> dict[str]:
+    def scrape_value(self, info: dict[str, Any], content: str) -> dict[str, Any]:
         html = BeautifulSoup(content, 'html.parser')
 
         title = html.select_one(self.title_identifier)
-        price = html.select_one(self.price_identifier)
+        price_text = self.find_price_text(html)
 
-        if not title or not price:
-            return None
+        if not title:
+            raise ScrapingError('Product title not found')
 
-        result = {
-            'title': None or title.text.strip(),
-            'price': price.text[:-1].strip(),
-            'url': url,
+        if not price_text:
+            raise ScrapingError('Product price not found')
+
+        return {
+            'productId': info['productId'],
+            'title': title.text.strip(),
+            'price': self.parse_price(price_text),
+            'url': info['url'],
             'tracked_at': datetime.now()
         }
 
-        if user_id:
-            result['userId'] = user_id
 
-        return result
+    def find_price_text(self, html: BeautifulSoup) -> str | None:
+        for selector in self.price_identifiers:
+            price = html.select_one(selector)
+            if price and price.text.strip():
+                return price.text.strip()
+
+        whole = html.select_one('span.a-price-whole')
+        fraction = html.select_one('span.a-price-fraction')
+        if whole and fraction:
+            return f'{whole.text},{fraction.text}'
+
+        return None
+
+
+    def parse_price(self, text: str) -> Decimal:
+        cleaned = re.sub(r'[^\d,.]', '', text)
+        if not cleaned:
+            raise ScrapingError(f'Invalid price: {text}')
+
+        if ',' in cleaned:
+            cleaned = cleaned.replace('.', '').replace(',', '.')
+        elif cleaned.count('.') > 1 or len(cleaned.rsplit('.', 1)[-1]) == 3:
+            cleaned = cleaned.replace('.', '')
+
+        return Decimal(cleaned).quantize(Decimal('0.01'))

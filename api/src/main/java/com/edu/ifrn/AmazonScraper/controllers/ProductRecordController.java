@@ -1,6 +1,6 @@
 package com.edu.ifrn.AmazonScraper.controllers;
 
-import com.edu.ifrn.AmazonScraper.entities.ProductRecord;
+import com.edu.ifrn.AmazonScraper.dtos.ProductRecordDTO;
 import com.edu.ifrn.AmazonScraper.services.ProductRecordService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.security.Principal;
 import java.util.List;
 
 @RestController
@@ -20,17 +21,18 @@ public class ProductRecordController {
     }
 
     @GetMapping
-    public ResponseEntity<List<ProductRecord>> findAll() {
-        return ResponseEntity.ok(productRecordService.findAll());
+    public ResponseEntity<List<ProductRecordDTO>> findAll(Principal principal) {
+        return ResponseEntity.ok(productRecordService.findByUser(principal.getName())
+                .stream()
+                .map(ProductRecordDTO::from)
+                .toList());
     }
-//
-//    @GetMapping("/{id}")
-//    public ResponseEntity<ProductRecord> findById(@PathVariable Long id) {
-//        return ResponseEntity.ok(productRecordService.findById(id));
-//    }
 
     @GetMapping("/{id}")
-    public ResponseEntity<List<ProductRecord>> findByProductId(@PathVariable Long id) {
-        return ResponseEntity.ok(productRecordService.findByProductId(id));
+    public ResponseEntity<List<ProductRecordDTO>> findByProductId(@PathVariable Long id, Principal principal) {
+        return ResponseEntity.ok(productRecordService.findByProductIdForUser(id, principal.getName())
+                .stream()
+                .map(ProductRecordDTO::from)
+                .toList());
     }
 }

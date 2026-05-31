@@ -1,0 +1,4 @@
+.env
+mysql-data/
+**/__pycache__/
+*.py[cod]

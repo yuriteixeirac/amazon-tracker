@@ -3,6 +3,7 @@ package com.edu.ifrn.AmazonScraper.services;
 import com.edu.ifrn.AmazonScraper.entities.ProductRecord;
 import com.edu.ifrn.AmazonScraper.exceptions.EntityNotFoundException;
 import com.edu.ifrn.AmazonScraper.repositories.ProductRecordRepository;
+import com.edu.ifrn.AmazonScraper.repositories.UserRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -10,9 +11,14 @@ import java.util.List;
 @Service
 public class ProductRecordService {
     private final ProductRecordRepository productRecordRepository;
+    private final UserRepository userRepository;
 
-    public ProductRecordService(ProductRecordRepository productRecordRepository) {
+    public ProductRecordService(
+            ProductRecordRepository productRecordRepository,
+            UserRepository userRepository
+    ) {
         this.productRecordRepository = productRecordRepository;
+        this.userRepository = userRepository;
     }
 
     public ProductRecord findById(Long id) {
@@ -24,12 +30,19 @@ public class ProductRecordService {
         return productRecordRepository.findAll();
     }
 
-    public List<ProductRecord> findByProductId(Long id) {
-        return productRecordRepository.findAll()
-                .stream()
-                .filter(record -> record
-                        .getProduct().getId().equals(id)
-                )
-                .toList();
+    public List<ProductRecord> findByUser(String userEmail) {
+        Long userId = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new EntityNotFoundException("User not found."))
+                .getId();
+
+        return productRecordRepository.findByProductTrackingUsersIdOrderByTrackedAtDesc(userId);
+    }
+
+    public List<ProductRecord> findByProductIdForUser(Long productId, String userEmail) {
+        Long userId = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new EntityNotFoundException("User not found."))
+                .getId();
+
+        return productRecordRepository.findByProductIdAndProductTrackingUsersIdOrderByTrackedAtDesc(productId, userId);
     }
 }

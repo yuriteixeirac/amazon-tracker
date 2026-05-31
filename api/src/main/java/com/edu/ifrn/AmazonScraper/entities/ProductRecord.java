@@ -3,6 +3,8 @@ package com.edu.ifrn.AmazonScraper.entities;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Objects;
 
 
@@ -17,11 +19,15 @@ public class ProductRecord {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(cascade = CascadeType.ALL)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
 
-    private Double price;
+    @Column(precision = 10, scale = 2)
+    private BigDecimal price;
+
+    @Column(name = "tracked_at", nullable = false)
+    private LocalDateTime trackedAt;
 
     @Override
     public boolean equals(Object o) {

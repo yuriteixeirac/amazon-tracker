@@ -1,5 +1,6 @@
 package com.edu.ifrn.AmazonScraper.entities;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -18,12 +19,14 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(unique = true, length = 320)
+    @Column(unique = true, nullable = false, length = 320)
     private String email;
 
-    @Column(length = 255)
+    @JsonIgnore
+    @Column(nullable = false, length = 255)
     private String password;
 
+    @JsonIgnore
     @ManyToMany
     @JoinTable(
             name = "users_products",

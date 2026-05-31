@@ -1,1 +1,1 @@
-from services.queue.rabbitmq_client import RabbitMQ
+from services.queue.rabbitmq_client import PermanentMessageError, RabbitMQ

@@ -6,45 +6,83 @@ services:
         environment:
             - SPRING_APPLICATION_NAME=AmazonScraper
             - SPRING_DATASOURCE_USERNAME=root
-            - SPRING_DATASOURCE_PASSWORD=18102007
-            - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/price_tracker
+            - SPRING_DATASOURCE_PASSWORD=${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in .env}
+            - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/${MYSQL_DATABASE:-price_tracker}
 
-            - JWT_SECRET_KEY=62fca201122c47a94c82712d64b1f0b8ee45c36bda5b6450f3bc163fde99d277
-            - JWT_EXPIRATION_TIME=1209600000
+            - JWT_SECRET_KEY=${JWT_SECRET_KEY:?set JWT_SECRET_KEY in .env}
+            - JWT_EXPIRATION_TIME=${JWT_EXPIRATION_TIME:-1209600000}
 
             - SPRING_RABBITMQ_HOST=rabbitmq
             - SPRING_RABBITMQ_PORT=5672
-            - SPRING_RABBITMQ_USERNAME=guest
-            - SPRING_RABBITMQ_PASSWORD=guest
+            - SPRING_RABBITMQ_USERNAME=${RABBITMQ_DEFAULT_USER:?set RABBITMQ_DEFAULT_USER in .env}
+            - SPRING_RABBITMQ_PASSWORD=${RABBITMQ_DEFAULT_PASS:?set RABBITMQ_DEFAULT_PASS in .env}
+            - APP_RABBITMQ_TRACK_PRODUCT_QUEUE=${TRACK_PRODUCT_QUEUE:-track_product}
+            - APP_PRODUCT_TRACKING_SCHEDULER_ENABLED=${APP_PRODUCT_TRACKING_SCHEDULER_ENABLED:-true}
+            - APP_PRODUCT_TRACKING_FIXED_DELAY_MS=${PRODUCT_TRACKING_FIXED_DELAY_MS:-1800000}
+            - APP_PRODUCT_TRACKING_INITIAL_DELAY_MS=${PRODUCT_TRACKING_INITIAL_DELAY_MS:-60000}
         depends_on:
-            - mariadb
-            - rabbitmq
+            mariadb:
+                condition: service_healthy
+            rabbitmq:
+                condition: service_healthy
+        healthcheck:
+            test: ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/8080'"]
+            interval: 10s
+            timeout: 5s
+            retries: 10
     
     mariadb:
         image: "mariadb:11.2"
         ports:
-            - "3306:3306"
+            - "127.0.0.1:3306:3306"
         environment:
-            - MYSQL_ROOT_PASSWORD=18102007
-            - MYSQL_DATABASE=price_tracker
+            - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in .env}
+            - MYSQL_DATABASE=${MYSQL_DATABASE:-price_tracker}
         volumes:
-            - ./mysql-data:/var/lib/mysql
+            - mysql-data:/var/lib/mysql
+            - ./script.sql:/docker-entrypoint-initdb.d/001-init.sql:ro
+        healthcheck:
+            test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -uroot -p$${MYSQL_ROOT_PASSWORD} --silent"]
+            interval: 10s
+            timeout: 5s
+            retries: 10
         
     
     rabbitmq:
         image: "rabbitmq:3-management-alpine"
         ports:
-            - "5672:5672"
-            - "15672:15672"
+            - "127.0.0.1:5672:5672"
+            - "127.0.0.1:15672:15672"
         environment:
-            - RABBITMQ_DEFAULT_USER=guest
-            - RABBITMQ_DEFAULT_PASS=guest
+            - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER:?set RABBITMQ_DEFAULT_USER in .env}
+            - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS:?set RABBITMQ_DEFAULT_PASS in .env}
+        healthcheck:
+            test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+            interval: 10s
+            timeout: 5s
+            retries: 10
         
     worker:
         build: worker/
         environment:
             - RABBITMQ_HOST=rabbitmq
-            - RABBITMQ_USER=guest
-            - RABBITMQ_PASS=guest
+            - RABBITMQ_USER=${RABBITMQ_DEFAULT_USER:?set RABBITMQ_DEFAULT_USER in .env}
+            - RABBITMQ_PASS=${RABBITMQ_DEFAULT_PASS:?set RABBITMQ_DEFAULT_PASS in .env}
+            - TRACK_PRODUCT_QUEUE=${TRACK_PRODUCT_QUEUE:-track_product}
+            - DB_HOST=mariadb
+            - DB_PORT=3306
+            - DB_USER=root
+            - DB_PASSWORD=${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in .env}
+            - DB_NAME=${MYSQL_DATABASE:-price_tracker}
+            - PROXY_FILE=${PROXY_FILE:-/worker/data/proxies.txt}
+            - USE_PROXIES=${USE_PROXIES:-false}
+        volumes:
+            - ./worker/data:/worker/data
         depends_on:
-            - rabbitmq
+            mariadb:
+                condition: service_healthy
+            rabbitmq:
+                condition: service_healthy
+
+volumes:
+    mysql-data:

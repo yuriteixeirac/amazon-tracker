@@ -19,9 +19,10 @@ public class Product {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(length = 512)
     private String title;
 
-    @Column(unique = true, length = 512)
+    @Column(unique = true, nullable = false, length = 512)
     private String url;
 
     @JsonIgnore
@@ -31,6 +32,10 @@ public class Product {
     @JsonIgnore
     @OneToMany(mappedBy = "product")
     Set<ProductRecord> records = new HashSet<>();
+
+    public Product(String url) {
+        this.url = url;
+    }
 
     @Override
     public boolean equals(Object o) {

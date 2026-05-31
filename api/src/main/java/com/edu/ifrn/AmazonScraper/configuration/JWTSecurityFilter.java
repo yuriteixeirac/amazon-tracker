@@ -2,14 +2,17 @@ package com.edu.ifrn.AmazonScraper.configuration;
 
 import com.edu.ifrn.AmazonScraper.services.CustomUserDetailsService;
 import com.edu.ifrn.AmazonScraper.services.JWTService;
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.NonNull;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -38,20 +41,38 @@ public class JWTSecurityFilter extends OncePerRequestFilter {
         String token = null;
         String username = null;
 
-        if (header != null && header.startsWith("Bearer")) {
+        if (header != null && !header.startsWith("Bearer ")) {
+            response.sendError(HttpStatus.UNAUTHORIZED.value(), "Invalid authorization header");
+            return;
+        }
+
+        if (header != null) {
             token = header.substring(7);
-            username = jwtService.extractUsername(token);
+
+            try {
+                username = jwtService.extractUsername(token);
+            } catch (JwtException | IllegalArgumentException exception) {
+                SecurityContextHolder.clearContext();
+                response.sendError(HttpStatus.UNAUTHORIZED.value(), "Invalid token");
+                return;
+            }
         }
 
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+            try {
+                UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 
-            if (jwtService.isValid(token, username)) {
-                UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
-                        userDetails, null, userDetails.getAuthorities()
-                );
+                if (jwtService.isValid(token, username)) {
+                    UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
+                            userDetails, null, userDetails.getAuthorities()
+                    );
 
-                SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+                    SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+                }
+            } catch (JwtException | UsernameNotFoundException | IllegalArgumentException exception) {
+                SecurityContextHolder.clearContext();
+                response.sendError(HttpStatus.UNAUTHORIZED.value(), "Invalid token");
+                return;
             }
         }
         filterChain.doFilter(request, response);

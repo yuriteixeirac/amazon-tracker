@@ -1,11 +1,11 @@
-FROM python:3.10.19-slim-bookworm
+FROM mcr.microsoft.com/playwright/python:v1.57.0-noble
 
-WORKDIR /worker/
+WORKDIR /worker
 
 COPY requirements.txt requirements.txt
 
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-ENTRYPOINT [ "python3", "main.py" ]
+ENTRYPOINT ["python", "main.py"]

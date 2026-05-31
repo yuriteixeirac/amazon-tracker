@@ -1,10 +1,14 @@
 package com.edu.ifrn.AmazonScraper.services;
 
+import com.edu.ifrn.AmazonScraper.dtos.LoginRequestDTO;
+import com.edu.ifrn.AmazonScraper.dtos.RegisterRequestDTO;
 import com.edu.ifrn.AmazonScraper.dtos.TokenDTO;
 import com.edu.ifrn.AmazonScraper.entities.User;
+import com.edu.ifrn.AmazonScraper.exceptions.EntityAlreadyExistsException;
 import com.edu.ifrn.AmazonScraper.exceptions.EntityNotFoundException;
 import com.edu.ifrn.AmazonScraper.repositories.UserRepository;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -13,11 +17,16 @@ import java.util.List;
 public class UserService {
     private final UserRepository userRepository;
     private final JWTService jwtService;
-    private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(12);
+    private final PasswordEncoder encoder;
 
-    public UserService(UserRepository userRepository, JWTService jwtService) {
+    public UserService(
+            UserRepository userRepository,
+            JWTService jwtService,
+            PasswordEncoder encoder
+    ) {
         this.userRepository = userRepository;
         this.jwtService = jwtService;
+        this.encoder = encoder;
     }
 
     public User findById(Long id) {
@@ -34,27 +43,27 @@ public class UserService {
                 .orElseThrow(() -> new EntityNotFoundException("User does not exist"));
     }
 
-    public TokenDTO register(User user) {
-        if (userRepository.existsByEmail(user.getEmail())) {
-            return null; // THROW EXCEPTION
+    public TokenDTO register(RegisterRequestDTO request) {
+        if (userRepository.existsByEmail(request.email())) {
+            throw new EntityAlreadyExistsException("Email is already registered.");
         }
 
-        user.setPassword(encoder.encode(user.getPassword()));
+        User user = new User();
+        user.setEmail(request.email());
+        user.setPassword(encoder.encode(request.password()));
         userRepository.save(user);
 
         return new TokenDTO(jwtService.generateToken(user.getEmail()));
     }
 
-    public TokenDTO login(User user) {
-        User existingUser = userRepository.findByEmail(user.getEmail()).orElse(null);
-        if (existingUser == null) {
-            return null;
+    public TokenDTO login(LoginRequestDTO request) {
+        User existingUser = userRepository.findByEmail(request.email())
+                .orElseThrow(() -> new BadCredentialsException("Invalid credentials."));
+
+        if (!encoder.matches(request.password(), existingUser.getPassword())) {
+            throw new BadCredentialsException("Invalid credentials.");
         }
 
-        if (!encoder.matches(user.getPassword(), existingUser.getPassword())) {
-            return null;
-        }
-
-        return new TokenDTO(jwtService.generateToken(user.getEmail()));
+        return new TokenDTO(jwtService.generateToken(existingUser.getEmail()));
     }
 }
