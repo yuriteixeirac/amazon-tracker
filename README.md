@@ -1,4 +1,4 @@
-# Price Pulse
+# Trackerzon
 Aplicação de estudo para rastreamento assíncrono de preços usando uma API Spring Boot, RabbitMQ, MariaDB e um worker Python com Playwright.
 
 **Disclaimer**: o projeto tem foco educacional. Os métodos usados para a coleta de dados vão contra o TOS da Amazon e podem banir IPs residenciais ou proxies.
